@@ -1,0 +1,43 @@
+{% load static %}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create Payment Voucher</title><link rel="stylesheet" href="{% static 'bill_invoice/voucher.css' %}"></head>
+<body>
+<div class="toolbar"><strong>Tiger Park Limited — Payment Voucher</strong><a href="{% url 'bill_invoice:create' %}">New voucher</a><button type="button" onclick="printVouchers()">Print 2 on A4</button><span class="hint">A4 portrait; two identical copies per printed page. Save to retain the voucher.</span></div>
+<main class="editor"><form method="post" enctype="multipart/form-data" id="voucher-form">{% csrf_token %}{{ lines.management_form }}
+<div class="logo-upload"><label for="{{ form.logo.id_for_label }}">Change logo</label> {{ form.logo }} {{ form.logo.errors }}</div>
+{% if form.errors or lines.non_form_errors %}<div class="form-errors">Please correct the highlighted fields. {{ form.non_field_errors }} {{ lines.non_form_errors }}</div>{% endif %}
+<section class="voucher" id="voucher-source">
+ <div class="voucher-title">Payment Voucher</div>
+ <div class="voucher-head"><div class="company"><span class="company-name" id="logo-preview"><img id="logo-image" src="{% static 'bill_invoice/tigerpark-logo-full.svg' %}" alt="Tiger Park logo"></span><strong>Tiger Park Limited</strong><br>2-16, Pallabi, Mirpur,<br>Dhaka-1216,<br>Bangladesh.<br>Cell: 01517327315</div>
+ <div class="head-fields"><div class="field-label">Date :</div><div class="field-value"><span class="date-shell">{{ form.date }}<span class="date-display"></span></span></div><div class="field-label">Department :</div><div class="field-value">{{ form.department }}</div>
+ <div class="field-label">Voucher No :</div><div class="field-value">{{ form.voucher_no }}</div><div class="field-label">Ledger No :</div><div class="field-value">{{ form.ledger_no }}</div>
+ <div class="field-label">Bank :</div><div class="field-value">{{ form.bank }}</div><div class="field-label">Cheque No :</div><div class="field-value">{{ form.cheque_no }}</div>
+ <div class="field-label">Cash :</div><div class="field-value">{{ form.cash }}</div><div class="field-label">Pay To :</div><div class="field-value">{{ form.pay_to }}</div></div></div>
+ <table class="voucher-lines"><colgroup><col class="date"><col class="method"><col class="ref"><col class="description"><col class="money"><col class="money"><col class="sign"></colgroup>
+ <thead><tr><th rowspan="2">Date</th><th rowspan="2">Payment<br>Method</th><th rowspan="2">Ref No</th><th rowspan="2">Description</th><th colspan="2">Amount in BDT</th><th rowspan="2">Sign</th></tr><tr><th>Dr</th><th>Cr</th></tr></thead>
+ <tbody>{% for f in lines %}{% for h in f.hidden_fields %}{{ h }}{% endfor %}<tr class="entry"><td><span class="date-shell">{{ f.date }}<span class="date-display"></span></span></td><td>{{ f.payment_method }}</td><td>{{ f.ref_no }}</td><td>{{ f.description }}</td><td>{{ f.debit }}</td><td>{{ f.credit }}</td><td>{{ f.signature }}</td></tr>{% if f.errors %}<tr><td colspan="7" class="field-error">{{ f.errors }}</td></tr>{% endif %}{% endfor %}
+ <tr class="total"><td colspan="4" class="total-label">Total</td><td id="total-debit">0.00</td><td id="total-credit">0.00</td><td></td></tr></tbody></table>
+ <div class="words"><strong>Amount in Words :</strong> {{ form.amount_words }}</div>
+ <div class="signatures"><span>{{ form.prepared_by }}<br><strong>Prepare By</strong></span><span>{{ form.received_by }}<br><strong>Received By</strong></span><span>{{ form.checked_by }}<br><strong>Checked By</strong></span><span>{{ form.approved_by }}<br><strong>Approve By</strong></span></div>
+ </section>
+ <div class="save"><button type="submit">Save voucher</button></div>
+ </form></main>
+<div class="print-page" id="print-page" aria-hidden="true"></div>
+<script>
+document.getElementById('{{ form.logo.id_for_label }}').addEventListener('change',function(){
+  const image=document.getElementById('logo-image');
+  if(image.dataset.objectUrl)URL.revokeObjectURL(image.dataset.objectUrl);
+  if(this.files.length){image.dataset.objectUrl=URL.createObjectURL(this.files[0]);image.src=image.dataset.objectUrl}
+  else{image.src="{% static 'bill_invoice/tigerpark-logo-full.svg' %}"}
+});
+document.querySelectorAll('.voucher-date').forEach(input=>{
+  const update=()=>{input.classList.toggle('has-date',Boolean(input.value));input.closest('.date-shell').querySelector('.date-display').textContent=input.value;};
+  update();
+  input.addEventListener('input',update);
+  input.addEventListener('change',update);
+});
+function updateTotals(){let debit=0,credit=0,entered=false;document.querySelectorAll('#voucher-form input[name$="-debit"]').forEach(el=>{if(el.value)entered=true;debit+=Number(el.value)||0});document.querySelectorAll('#voucher-form input[name$="-credit"]').forEach(el=>{if(el.value)entered=true;credit+=Number(el.value)||0});document.getElementById('total-debit').textContent=entered?debit.toFixed(2):'';document.getElementById('total-credit').textContent=entered?credit.toFixed(2):''}
+document.getElementById('voucher-form').addEventListener('input',updateTotals);updateTotals();
+function buildPrintVouchers(){updateTotals();const src=document.getElementById('voucher-source'),target=document.getElementById('print-page');target.replaceChildren();for(let i=0;i<2;i++){const slot=document.createElement('div');slot.className='print-slot';const copy=src.cloneNode(true);const sourceInputs=src.querySelectorAll('input,textarea,select'),copyInputs=copy.querySelectorAll('input,textarea,select');sourceInputs.forEach((field,j)=>{const clone=copyInputs[j];if(!clone)return;if(field.type==='checkbox'||field.type==='radio')clone.checked=field.checked;else clone.value=field.value;clone.removeAttribute('id');clone.removeAttribute('name');clone.removeAttribute('required')});slot.appendChild(copy);target.appendChild(slot)}}
+function printVouchers(){buildPrintVouchers();window.print()}
+window.addEventListener('beforeprint',buildPrintVouchers);
+</script></body></html>
